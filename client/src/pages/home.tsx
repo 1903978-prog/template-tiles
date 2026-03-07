@@ -32,7 +32,6 @@ import {
   FolderOpen,
   FolderPlus,
   Inbox,
-  ArrowLeft,
   GripVertical,
   X,
   FileText,
@@ -541,19 +540,9 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-3 h-16">
             <div className="flex items-center gap-2 shrink-0">
-              {!isOnDashboard && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => { setOpenFolderId(null); setSearch(""); setPreviewTileId(null); }}
-                  data-testid="button-back"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </Button>
-              )}
               <LayoutGrid className="w-5 h-5 text-primary" />
               <h1 className="text-lg font-semibold tracking-tight" data-testid="text-app-title">
-                {isOnDashboard ? "Template Tiles" : currentFolderName}
+                Template Tiles
               </h1>
             </div>
 
@@ -563,7 +552,7 @@ export default function Home() {
                 <Input
                   data-testid="input-search"
                   type="search"
-                  placeholder={isOnDashboard ? "Search all templates..." : "Search in folder..."}
+                  placeholder={isOnDashboard ? "Search all templates..." : `Search in ${currentFolderName}...`}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9"
@@ -572,12 +561,6 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-1 shrink-0 flex-wrap">
-              {!isOnDashboard && (
-                <Button size="sm" onClick={addTile} data-testid="button-add-tile">
-                  <Plus className="w-4 h-4 mr-1" />
-                  <span className="hidden sm:inline">Add</span>
-                </Button>
-              )}
               <Button
                 size="sm"
                 variant="secondary"
@@ -602,28 +585,25 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className={`flex gap-6 ${previewTile ? "" : ""}`}>
-        <div className={`${previewTile ? "flex-1 min-w-0" : "w-full"}`}>
-        {isOnDashboard && !searchResultsGlobal ? (
-          <>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-foreground" data-testid="text-section-folders">Folders</h2>
-              <Button size="sm" variant="secondary" onClick={openAddFolder} data-testid="button-add-folder">
-                <FolderPlus className="w-4 h-4 mr-1" />
-                New folder
-              </Button>
-            </div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-semibold text-foreground" data-testid="text-section-folders">Folders</h2>
+          <Button size="sm" variant="secondary" onClick={openAddFolder} data-testid="button-add-folder">
+            <FolderPlus className="w-4 h-4 mr-1" />
+            New folder
+          </Button>
+        </div>
 
-            <div
-              className="grid gap-4 mb-8"
-              style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}
-              data-testid="grid-folders"
-            >
+        <div
+          className="grid gap-4 mb-6"
+          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}
+          data-testid="grid-folders"
+        >
               {folders.map((folder) => {
                 const count = tiles.filter((t) => t.folderId === folder.id).length;
                 const isConfirmingDelete = deleteFolderConfirmId === folder.id;
                 const isDragOver = dragOverFolderId === folder.id;
                 const isMoveTarget = previewTileId !== null && uncategorizedTiles.some((t) => t.id === previewTileId);
+                const isActive = openFolderId === folder.id;
 
                 return (
                   <div
@@ -632,18 +612,25 @@ export default function Home() {
                     className={`group/folder relative border rounded-md cursor-pointer hover-elevate transition-all duration-200 ${
                       isMoveTarget
                         ? "bg-green-50 border-green-300 dark:bg-green-950/30 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/40 hover:border-green-400 dark:hover:border-green-600"
-                        : isDragOver
-                          ? "ring-2 ring-primary border-primary/50 bg-primary/5 bg-card"
-                          : "bg-card"
+                        : isActive
+                          ? "ring-2 ring-primary border-primary/50 bg-primary/5"
+                          : isDragOver
+                            ? "ring-2 ring-primary border-primary/50 bg-primary/5 bg-card"
+                            : "bg-card"
                     }`}
                     style={{ aspectRatio: "4 / 3" }}
                     onClick={() => {
-                      if (isMoveTarget && previewTileId) {
+                      if (isActive) {
+                        setOpenFolderId(null);
+                        setSearch("");
+                        setPreviewTileId(null);
+                      } else if (isMoveTarget && previewTileId) {
                         moveTileToFolder(previewTileId, folder.id);
                         setPreviewTileId(null);
                       } else {
                         setOpenFolderId(folder.id);
                         setPreviewTileId(null);
+                        setSearch("");
                       }
                     }}
                     onDragOver={(e) => handleFolderDragOver(e, folder.id)}
@@ -697,12 +684,14 @@ export default function Home() {
                   </div>
                 );
               })}
-
             </div>
 
-            {uncategorizedTiles.length > 0 && (
+        <div className="flex gap-6">
+          <div className="flex-1 min-w-0">
+
+        {isOnDashboard && !searchResultsGlobal && uncategorizedTiles.length > 0 && (
               <>
-                <div className="flex items-center justify-between mt-8 mb-4">
+                <div className="flex items-center justify-between mb-4">
                   <h2 className="text-base font-semibold text-foreground flex items-center gap-2" data-testid="text-section-uncategorized">
                     <Inbox className="w-4 h-4 text-muted-foreground" />
                     Uncategorized
@@ -821,8 +810,6 @@ export default function Home() {
                 </div>
               </>
             )}
-          </>
-        ) : null}
 
         {isOnDashboard && searchResultsGlobal ? (
           <>
@@ -851,6 +838,16 @@ export default function Home() {
 
         {!isOnDashboard ? (
           <>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-foreground flex items-center gap-2" data-testid="text-current-folder-label">
+                <FolderOpen className="w-4 h-4 text-muted-foreground" />
+                {currentFolderName}
+              </h2>
+              <Button size="sm" onClick={addTile} data-testid="button-add-tile">
+                <Plus className="w-4 h-4 mr-1" />
+                Add
+              </Button>
+            </div>
             {filteredTiles.length === 0 && search.trim() ? (
               <div className="flex flex-col items-center justify-center py-20 text-center" data-testid="text-no-results">
                 <Search className="w-12 h-12 text-muted-foreground/40 mb-4" />
@@ -858,7 +855,7 @@ export default function Home() {
                 <p className="text-sm text-muted-foreground/70 mt-1">Try a different search term</p>
               </div>
             ) : filteredTiles.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center" data-testid="text-empty-state">
+              <div className="flex flex-col items-center justify-center py-12 text-center" data-testid="text-empty-state">
                 <FolderOpen className="w-12 h-12 text-muted-foreground/40 mb-4" />
                 <p className="text-lg font-medium text-muted-foreground">This folder is empty</p>
                 <p className="text-sm text-muted-foreground/70 mt-1 mb-4">
@@ -880,109 +877,124 @@ export default function Home() {
             )}
           </>
         ) : null}
-        </div>
 
-        {previewTile && (
+        {isOnDashboard && !searchResultsGlobal && uncategorizedTiles.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-center" data-testid="text-dashboard-empty">
+            <ClipboardPaste className="w-12 h-12 text-muted-foreground/40 mb-4" />
+            <p className="text-muted-foreground">Click a folder to view its templates</p>
+          </div>
+        )}
+
+          </div>
+
           <div
             className="w-80 lg:w-96 shrink-0 hidden md:block sticky top-24 self-start"
             data-testid="panel-preview"
           >
-            <div className="border rounded-lg bg-card overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-                <h3 className="text-sm font-semibold truncate flex-1 mr-2" data-testid="preview-title">
-                  {previewTile.title || "Untitled"}
-                </h3>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    data-testid="button-preview-copy"
-                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                    onClick={() => copyToClipboard(previewTile)}
-                    title="Copy to clipboard"
-                  >
-                    {copiedId === previewTile.id ? (
-                      <Check className="w-4 h-4 text-primary" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </button>
-                  <button
-                    data-testid="button-preview-edit"
-                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                    onClick={() => startEdit(previewTile)}
-                    title="Edit template"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                  <button
-                    data-testid="button-preview-close"
-                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                    onClick={() => setPreviewTileId(null)}
-                    title="Close preview"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              {previewTile.folderId && (
-                <div className="px-4 py-2 border-b bg-muted/10">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <FolderOpen className="w-3 h-3" />
-                    {folders.find((f) => f.id === previewTile.folderId)?.name || "Unknown folder"}
-                  </span>
-                </div>
-              )}
-              {!previewTile.folderId && folders.length > 0 && (
-                <div className="px-4 py-2 border-b bg-muted/10">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs text-muted-foreground">Move to:</span>
-                    {folders.map((f) => (
+            <div className="border rounded-lg bg-card overflow-hidden min-h-[200px]">
+              {previewTile ? (
+                <>
+                  <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+                    <h3 className="text-sm font-semibold truncate flex-1 mr-2" data-testid="preview-title">
+                      {previewTile.title || "Untitled"}
+                    </h3>
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
-                        key={f.id}
-                        data-testid={`preview-move-to-${f.id}`}
-                        className="flex items-center gap-1 px-2 py-0.5 rounded border text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
-                        onClick={() => {
-                          moveTileToFolder(previewTile.id, f.id);
-                          setPreviewTileId(null);
-                        }}
+                        data-testid="button-preview-copy"
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        onClick={() => copyToClipboard(previewTile)}
+                        title="Copy to clipboard"
                       >
-                        <FolderOpen className="w-3 h-3" />
-                        {f.name}
+                        {copiedId === previewTile.id ? (
+                          <Check className="w-4 h-4 text-primary" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
                       </button>
-                    ))}
+                      <button
+                        data-testid="button-preview-edit"
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        onClick={() => startEdit(previewTile)}
+                        title="Edit template"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        data-testid="button-preview-close"
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        onClick={() => setPreviewTileId(null)}
+                        title="Close preview"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
+                  {previewTile.folderId && (
+                    <div className="px-4 py-2 border-b bg-muted/10">
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <FolderOpen className="w-3 h-3" />
+                        {folders.find((f) => f.id === previewTile.folderId)?.name || "Unknown folder"}
+                      </span>
+                    </div>
+                  )}
+                  {!previewTile.folderId && folders.length > 0 && (
+                    <div className="px-4 py-2 border-b bg-muted/10">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs text-muted-foreground">Move to:</span>
+                        {folders.map((f) => (
+                          <button
+                            key={f.id}
+                            data-testid={`preview-move-to-${f.id}`}
+                            className="flex items-center gap-1 px-2 py-0.5 rounded border text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                            onClick={() => {
+                              moveTileToFolder(previewTile.id, f.id);
+                              setPreviewTileId(null);
+                            }}
+                          >
+                            <FolderOpen className="w-3 h-3" />
+                            {f.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="p-4 max-h-[60vh] overflow-y-auto">
+                    <p
+                      className="text-sm text-foreground leading-relaxed whitespace-pre-wrap"
+                      data-testid="preview-body"
+                    >
+                      {previewTile.body || "Empty template"}
+                    </p>
+                  </div>
+                  <div className="px-4 py-3 border-t bg-muted/10">
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={() => copyToClipboard(previewTile)}
+                      data-testid="button-preview-copy-full"
+                    >
+                      {copiedId === previewTile.id ? (
+                        <>
+                          <Check className="w-4 h-4 mr-2" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copy to Clipboard
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 px-4 text-center" data-testid="preview-empty">
+                  <FileText className="w-10 h-10 text-muted-foreground/30 mb-3" />
+                  <p className="text-sm text-muted-foreground">Select a template to preview</p>
                 </div>
               )}
-              <div className="p-4 max-h-[60vh] overflow-y-auto">
-                <p
-                  className="text-sm text-foreground leading-relaxed whitespace-pre-wrap"
-                  data-testid="preview-body"
-                >
-                  {previewTile.body || "Empty template"}
-                </p>
-              </div>
-              <div className="px-4 py-3 border-t bg-muted/10">
-                <Button
-                  size="sm"
-                  className="w-full"
-                  onClick={() => copyToClipboard(previewTile)}
-                  data-testid="button-preview-copy-full"
-                >
-                  {copiedId === previewTile.id ? (
-                    <>
-                      <Check className="w-4 h-4 mr-2" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copy to Clipboard
-                    </>
-                  )}
-                </Button>
-              </div>
             </div>
           </div>
-        )}
         </div>
       </main>
 

@@ -1,6 +1,6 @@
 # Template Tiles
 
-A single-page web app for managing reusable text templates. Click a tile to copy its text to the clipboard.
+A single-page web app for managing reusable text templates. Click a tile to preview its text. Templates are organized hierarchically into folder cards on a dashboard.
 
 ## Architecture
 
@@ -10,22 +10,21 @@ A single-page web app for managing reusable text templates. Click a tile to copy
 
 ## Structure
 
-- `client/src/pages/home.tsx` - Main page with dashboard, folder cards, template tiles, drag-and-drop, search, edit dialogs, import/export
+- `client/src/pages/home.tsx` - Main page with persistent folder bar, template tiles, preview pane, drag-and-drop, search, edit dialogs, import/export
 - `client/src/App.tsx` - Router setup pointing to Home page
 - `server/` - Standard Express server serving the Vite frontend (no custom API routes used)
 
 ## Key Features
 
-- **Dashboard view** - main screen shows folder cards in a grid; click to open; uncategorized templates shown inline below folders
-- **Folder cards** - visual cards representing folders (Emails, Finance, etc.); act as drag-and-drop targets
-- **Uncategorized tiles on dashboard** - uncategorized templates display directly on the dashboard; clicking a tile turns all folder cards light green with "Click to move here" text; clicking a green folder card moves the template into that folder
-- **Folder view** - click a folder card to see its templates; back button returns to dashboard
+- **Persistent layout** - folders always visible at the top; preview pane always visible on the right (shows empty state when no tile selected)
+- **Folder cards** - visual cards at the top; click to open a folder (shows its templates below); click again to close; active folder gets highlighted ring; also act as drag-and-drop targets
+- **Uncategorized tiles** - shown directly on the dashboard below folder cards; clicking a tile turns all folder cards light green with "Click to move here" text; clicking a green folder card moves the template
+- **Preview pane** - always-visible panel on the right; click any tile to see its full text with copy, edit, and close buttons; for uncategorized tiles, also shows "Move to" folder buttons
 - **Drag and drop** - drag template tiles onto folder cards (on dashboard) or onto a floating drop-zone bar (when inside a folder) to move templates between folders
 - **Folder CRUD** - create, rename, delete folders via dialogs
 - **Template CRUD** - create, edit, delete template tiles with folder assignment
-- **Reading pane** - click any tile to open a preview panel on the right side showing the full template text with copy, edit, and close buttons; uncategorized tiles also show "Move to" folder options in the preview
 - **Copy to clipboard** - copy button in preview panel and on tile hover copies template text with toast feedback
-- **Global search** - search from dashboard shows results across all folders
+- **Global search** - search from dashboard shows results across all folders; search inside a folder is scoped
 - **Export/Import** - download templates + folders as JSON, or import from JSON
 - **localStorage persistence** - data survives page refreshes
 
