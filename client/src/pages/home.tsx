@@ -34,6 +34,8 @@ import {
   Inbox,
   ArrowLeft,
   GripVertical,
+  X,
+  FileText,
 } from "lucide-react";
 
 interface Folder {
@@ -156,7 +158,7 @@ export default function Home() {
   const [deleteFolderConfirmId, setDeleteFolderConfirmId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [draggingTileId, setDraggingTileId] = useState<string | null>(null);
-  const [selectedUncatTileId, setSelectedUncatTileId] = useState<string | null>(null);
+  const [previewTileId, setPreviewTileId] = useState<string | null>(null);
   const { toast } = useToast();
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -266,6 +268,7 @@ export default function Home() {
   const deleteTile = (id: string) => {
     setTiles((prev) => prev.filter((t) => t.id !== id));
     setDeleteConfirmId(null);
+    if (previewTileId === id) setPreviewTileId(null);
   };
 
   const moveTileToFolder = (tileId: string, targetFolderId: string | null) => {
@@ -423,10 +426,13 @@ export default function Home() {
   const uncategorizedTiles = tiles.filter((t) => t.folderId === null);
   const uncategorizedCount = uncategorizedTiles.length;
 
+  const previewTile = previewTileId ? tiles.find((t) => t.id === previewTileId) : null;
+
   const renderTileCard = (tile: TemplateTile) => {
     const isCopied = copiedId === tile.id;
     const isDeleting = deleteConfirmId === tile.id;
     const isDragging = draggingTileId === tile.id;
+    const isPreviewed = previewTileId === tile.id;
 
     return (
       <div
@@ -436,10 +442,10 @@ export default function Home() {
         onDragStart={(e) => handleTileDragStart(e, tile.id)}
         onDragEnd={handleTileDragEnd}
         className={`group relative border rounded-md bg-card transition-all duration-200 cursor-pointer hover-elevate ${
-          isCopied ? "ring-2 ring-primary/50" : ""
+          isPreviewed ? "ring-2 ring-primary border-primary/50" : isCopied ? "ring-2 ring-primary/50" : ""
         } ${isDragging ? "opacity-40" : ""}`}
         style={{ aspectRatio: "1 / 1" }}
-        onClick={() => copyToClipboard(tile)}
+        onClick={() => setPreviewTileId(isPreviewed ? null : tile.id)}
       >
         <div className="absolute inset-0 flex flex-col p-4 overflow-hidden rounded-md">
           <div className="flex items-start justify-between gap-1 mb-1">
@@ -453,6 +459,17 @@ export default function Home() {
               </h3>
             </div>
             <div className="flex items-center gap-0.5 invisible group-hover:visible transition-opacity opacity-0 group-hover:opacity-100 shrink-0">
+              <button
+                data-testid={`button-copy-tile-${tile.id}`}
+                className="p-1 rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyToClipboard(tile);
+                }}
+                title="Copy"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
               <button
                 data-testid={`button-edit-${tile.id}`}
                 className="p-1 rounded-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -508,8 +525,8 @@ export default function Home() {
               </span>
             ) : (
               <span className="text-xs text-muted-foreground/60 flex items-center gap-1">
-                <Copy className="w-3 h-3" />
-                Click to copy
+                <FileText className="w-3 h-3" />
+                Click to preview
               </span>
             )}
           </div>
@@ -528,7 +545,7 @@ export default function Home() {
                 <Button
                   size="icon"
                   variant="ghost"
-                  onClick={() => { setOpenFolderId(null); setSearch(""); }}
+                  onClick={() => { setOpenFolderId(null); setSearch(""); setPreviewTileId(null); }}
                   data-testid="button-back"
                 >
                   <ArrowLeft className="w-4 h-4" />
@@ -585,6 +602,8 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className={`flex gap-6 ${previewTile ? "" : ""}`}>
+        <div className={`${previewTile ? "flex-1 min-w-0" : "w-full"}`}>
         {isOnDashboard && !searchResultsGlobal ? (
           <>
             <div className="flex items-center justify-between mb-4">
@@ -613,7 +632,7 @@ export default function Home() {
                       isDragOver ? "ring-2 ring-primary border-primary/50 bg-primary/5" : ""
                     }`}
                     style={{ aspectRatio: "4 / 3" }}
-                    onClick={() => setOpenFolderId(folder.id)}
+                    onClick={() => { setOpenFolderId(folder.id); setPreviewTileId(null); }}
                     onDragOver={(e) => handleFolderDragOver(e, folder.id)}
                     onDragLeave={handleFolderDragLeave}
                     onDrop={(e) => handleFolderDrop(e, folder.id)}
@@ -684,7 +703,7 @@ export default function Home() {
                     const isCopied = copiedId === tile.id;
                     const isDeleting = deleteConfirmId === tile.id;
                     const isDragging = draggingTileId === tile.id;
-                    const isSelected = selectedUncatTileId === tile.id;
+                    const isPreviewed = previewTileId === tile.id;
 
                     return (
                       <div key={tile.id} className="flex flex-col gap-2">
@@ -694,17 +713,11 @@ export default function Home() {
                           onDragStart={(e) => handleTileDragStart(e, tile.id)}
                           onDragEnd={handleTileDragEnd}
                           className={`group relative border rounded-md bg-card transition-all duration-200 cursor-pointer hover-elevate ${
-                            isCopied ? "ring-2 ring-primary/50" : ""
-                          } ${isDragging ? "opacity-40" : ""} ${
-                            isSelected ? "ring-2 ring-primary" : ""
-                          }`}
+                            isPreviewed ? "ring-2 ring-primary border-primary/50" : isCopied ? "ring-2 ring-primary/50" : ""
+                          } ${isDragging ? "opacity-40" : ""}`}
                           style={{ aspectRatio: "1 / 1" }}
                           onClick={() => {
-                            if (isSelected) {
-                              setSelectedUncatTileId(null);
-                            } else {
-                              setSelectedUncatTileId(tile.id);
-                            }
+                            setPreviewTileId(previewTileId === tile.id ? null : tile.id);
                           }}
                         >
                           <div className="absolute inset-0 flex flex-col p-4 overflow-hidden rounded-md">
@@ -787,25 +800,6 @@ export default function Home() {
                           </div>
                         </div>
 
-                        {isSelected && (
-                          <div className="flex items-center gap-1.5 flex-wrap animate-in fade-in slide-in-from-top-1 duration-150" data-testid={`folder-options-${tile.id}`}>
-                            <span className="text-xs text-muted-foreground mr-1">Move to:</span>
-                            {folders.map((f) => (
-                              <button
-                                key={f.id}
-                                data-testid={`move-to-folder-${f.id}-${tile.id}`}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-medium text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
-                                onClick={() => {
-                                  moveTileToFolder(tile.id, f.id);
-                                  setSelectedUncatTileId(null);
-                                }}
-                              >
-                                <FolderOpen className="w-3 h-3" />
-                                {f.name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -871,6 +865,110 @@ export default function Home() {
             )}
           </>
         ) : null}
+        </div>
+
+        {previewTile && (
+          <div
+            className="w-80 lg:w-96 shrink-0 hidden md:block sticky top-24 self-start"
+            data-testid="panel-preview"
+          >
+            <div className="border rounded-lg bg-card overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+                <h3 className="text-sm font-semibold truncate flex-1 mr-2" data-testid="preview-title">
+                  {previewTile.title || "Untitled"}
+                </h3>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    data-testid="button-preview-copy"
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    onClick={() => copyToClipboard(previewTile)}
+                    title="Copy to clipboard"
+                  >
+                    {copiedId === previewTile.id ? (
+                      <Check className="w-4 h-4 text-primary" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                  <button
+                    data-testid="button-preview-edit"
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    onClick={() => startEdit(previewTile)}
+                    title="Edit template"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    data-testid="button-preview-close"
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    onClick={() => setPreviewTileId(null)}
+                    title="Close preview"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              {previewTile.folderId && (
+                <div className="px-4 py-2 border-b bg-muted/10">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <FolderOpen className="w-3 h-3" />
+                    {folders.find((f) => f.id === previewTile.folderId)?.name || "Unknown folder"}
+                  </span>
+                </div>
+              )}
+              {!previewTile.folderId && folders.length > 0 && (
+                <div className="px-4 py-2 border-b bg-muted/10">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs text-muted-foreground">Move to:</span>
+                    {folders.map((f) => (
+                      <button
+                        key={f.id}
+                        data-testid={`preview-move-to-${f.id}`}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded border text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                        onClick={() => {
+                          moveTileToFolder(previewTile.id, f.id);
+                          setPreviewTileId(null);
+                        }}
+                      >
+                        <FolderOpen className="w-3 h-3" />
+                        {f.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="p-4 max-h-[60vh] overflow-y-auto">
+                <p
+                  className="text-sm text-foreground leading-relaxed whitespace-pre-wrap"
+                  data-testid="preview-body"
+                >
+                  {previewTile.body || "Empty template"}
+                </p>
+              </div>
+              <div className="px-4 py-3 border-t bg-muted/10">
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={() => copyToClipboard(previewTile)}
+                  data-testid="button-preview-copy-full"
+                >
+                  {copiedId === previewTile.id ? (
+                    <>
+                      <Check className="w-4 h-4 mr-2" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy to Clipboard
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+        </div>
       </main>
 
       {draggingTileId && (

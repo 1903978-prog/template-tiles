@@ -23,7 +23,8 @@ A single-page web app for managing reusable text templates. Click a tile to copy
 - **Drag and drop** - drag template tiles onto folder cards (on dashboard) or onto a floating drop-zone bar (when inside a folder) to move templates between folders
 - **Folder CRUD** - create, rename, delete folders via dialogs
 - **Template CRUD** - create, edit, delete template tiles with folder assignment
-- **Copy on click** - click any tile to copy its body text to clipboard with toast feedback
+- **Reading pane** - click any tile to open a preview panel on the right side showing the full template text with copy, edit, and close buttons; uncategorized tiles also show "Move to" folder options in the preview
+- **Copy to clipboard** - copy button in preview panel and on tile hover copies template text with toast feedback
 - **Global search** - search from dashboard shows results across all folders
 - **Export/Import** - download templates + folders as JSON, or import from JSON
 - **localStorage persistence** - data survives page refreshes
