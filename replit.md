@@ -10,22 +10,22 @@ A single-page web app for managing reusable text templates. Click a tile to copy
 
 ## Structure
 
-- `client/src/pages/home.tsx` - Main page with all Template Tiles logic (grid, folders, search, edit dialog, import/export)
+- `client/src/pages/home.tsx` - Main page with dashboard, folder cards, template tiles, drag-and-drop, search, edit dialogs, import/export
 - `client/src/App.tsx` - Router setup pointing to Home page
 - `server/` - Standard Express server serving the Vite frontend (no custom API routes used)
 
 ## Key Features
 
-- **Folders** - organize templates into folders (Emails, Finance, etc.) with create, rename, delete
-- Responsive grid of square tiles with copy-on-click
-- Create, edit, delete templates via modal dialog with folder assignment
-- Folder tab bar for navigation: All, per-folder, Uncategorized
-- Search/filter tiles by title or body text
-- Move tiles left/right to reorder
-- Export/Import templates + folders as JSON
-- 3 default folders + 6 default templates on first load
-- Toast notifications for copy feedback
-- Clipboard fallback error handling
+- **Dashboard view** - main screen shows folder cards in a grid; click to open
+- **Folder cards** - visual cards representing folders (Emails, Finance, etc.); act as drag-and-drop targets
+- **Folder view** - click a folder card to see its templates; back button returns to dashboard
+- **Drag and drop** - drag template tiles onto folder cards (on dashboard) or onto a floating drop-zone bar (when inside a folder) to move templates between folders
+- **Folder CRUD** - create, rename, delete folders via dialogs
+- **Template CRUD** - create, edit, delete template tiles with folder assignment
+- **Copy on click** - click any tile to copy its body text to clipboard with toast feedback
+- **Global search** - search from dashboard shows results across all folders
+- **Export/Import** - download templates + folders as JSON, or import from JSON
+- **localStorage persistence** - data survives page refreshes
 
 ## Data Storage
 

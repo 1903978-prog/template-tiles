@@ -29,11 +29,11 @@ import {
   Check,
   LayoutGrid,
   ClipboardPaste,
-  ChevronLeft,
-  ChevronRight,
   FolderOpen,
   FolderPlus,
   Inbox,
+  ArrowLeft,
+  GripVertical,
 } from "lucide-react";
 
 interface Folder {
@@ -54,7 +54,6 @@ interface AppData {
 }
 
 const STORAGE_KEY = "template-tiles-data";
-const ALL_FOLDER_ID = "__all__";
 const UNCATEGORIZED_ID = "__uncategorized__";
 
 const DEFAULT_FOLDERS: Folder[] = [
@@ -140,7 +139,7 @@ function generateId(): string {
 export default function Home() {
   const [data, setData] = useState<AppData>(loadData);
   const [search, setSearch] = useState("");
-  const [activeFolder, setActiveFolder] = useState<string>(ALL_FOLDER_ID);
+  const [openFolderId, setOpenFolderId] = useState<string | null>(null);
   const [editingTile, setEditingTile] = useState<TemplateTile | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -155,6 +154,8 @@ export default function Home() {
   const [folderName, setFolderName] = useState("");
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [deleteFolderConfirmId, setDeleteFolderConfirmId] = useState<string | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [draggingTileId, setDraggingTileId] = useState<string | null>(null);
   const { toast } = useToast();
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -172,22 +173,32 @@ export default function Home() {
     setData((prev) => ({ ...prev, folders: updater(prev.folders) }));
   };
 
-  const filteredTiles = tiles.filter((tile) => {
-    if (activeFolder === ALL_FOLDER_ID) {
-      // show all
-    } else if (activeFolder === UNCATEGORIZED_ID) {
-      if (tile.folderId !== null) return false;
-    } else {
-      if (tile.folderId !== activeFolder) return false;
-    }
+  const isOnDashboard = openFolderId === null;
+  const currentFolderName = openFolderId
+    ? (openFolderId === UNCATEGORIZED_ID
+      ? "Uncategorized"
+      : folders.find((f) => f.id === openFolderId)?.name || "Folder")
+    : null;
 
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return (
-      tile.title.toLowerCase().includes(q) ||
-      tile.body.toLowerCase().includes(q)
-    );
-  });
+  const visibleTiles = openFolderId
+    ? tiles.filter((t) =>
+        openFolderId === UNCATEGORIZED_ID ? t.folderId === null : t.folderId === openFolderId
+      )
+    : [];
+
+  const filteredTiles = search.trim()
+    ? (isOnDashboard ? tiles : visibleTiles).filter((tile) => {
+        const q = search.toLowerCase();
+        return tile.title.toLowerCase().includes(q) || tile.body.toLowerCase().includes(q);
+      })
+    : visibleTiles;
+
+  const searchResultsGlobal = isOnDashboard && search.trim()
+    ? tiles.filter((tile) => {
+        const q = search.toLowerCase();
+        return tile.title.toLowerCase().includes(q) || tile.body.toLowerCase().includes(q);
+      })
+    : null;
 
   const copyToClipboard = useCallback(
     async (tile: TemplateTile) => {
@@ -204,8 +215,7 @@ export default function Home() {
       } catch {
         toast({
           title: "Clipboard unavailable",
-          description:
-            "Your browser blocked clipboard access. Please select the text manually and press Ctrl+C / Cmd+C.",
+          description: "Your browser blocked clipboard access. Please select the text manually and press Ctrl+C / Cmd+C.",
           variant: "destructive",
           duration: 5000,
         });
@@ -215,9 +225,7 @@ export default function Home() {
   );
 
   const addTile = () => {
-    const defaultFolder = activeFolder === ALL_FOLDER_ID || activeFolder === UNCATEGORIZED_ID
-      ? null
-      : activeFolder;
+    const defaultFolder = openFolderId === UNCATEGORIZED_ID ? null : openFolderId;
     const newTile: TemplateTile = {
       id: generateId(),
       title: "",
@@ -263,18 +271,17 @@ export default function Home() {
     setDeleteConfirmId(null);
   };
 
-  const canReorder = !search.trim() && activeFolder === ALL_FOLDER_ID;
-
-  const moveTile = (id: string, direction: -1 | 1) => {
-    if (!canReorder) return;
-    setTiles((prev) => {
-      const idx = prev.findIndex((t) => t.id === id);
-      if (idx < 0) return prev;
-      const newIdx = idx + direction;
-      if (newIdx < 0 || newIdx >= prev.length) return prev;
-      const next = [...prev];
-      [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
-      return next;
+  const moveTileToFolder = (tileId: string, targetFolderId: string | null) => {
+    setTiles((prev) =>
+      prev.map((t) => (t.id === tileId ? { ...t, folderId: targetFolderId } : t))
+    );
+    const folderLabel = targetFolderId
+      ? folders.find((f) => f.id === targetFolderId)?.name || "folder"
+      : "Uncategorized";
+    toast({
+      title: "Moved",
+      description: `Template moved to ${folderLabel}`,
+      duration: 1500,
     });
   };
 
@@ -314,7 +321,7 @@ export default function Home() {
         t.folderId === folderId ? { ...t, folderId: null } : t
       ),
     }));
-    if (activeFolder === folderId) setActiveFolder(ALL_FOLDER_ID);
+    if (openFolderId === folderId) setOpenFolderId(null);
     setDeleteFolderConfirmId(null);
     toast({ title: "Folder deleted", description: "Templates moved to Uncategorized", duration: 2000 });
   };
@@ -339,13 +346,9 @@ export default function Home() {
     try {
       const parsed = JSON.parse(importText);
       const validateTiles = (arr: any[]) =>
-        arr.every(
-          (t: any) => typeof t.title === "string" && typeof t.body === "string"
-        );
+        arr.every((t: any) => typeof t.title === "string" && typeof t.body === "string");
       const validateFolders = (arr: any[]) =>
-        arr.every(
-          (f: any) => typeof f.id === "string" && typeof f.name === "string"
-        );
+        arr.every((f: any) => typeof f.id === "string" && typeof f.name === "string");
 
       if (parsed.folders && parsed.tiles) {
         if (!Array.isArray(parsed.folders) || !Array.isArray(parsed.tiles))
@@ -377,6 +380,7 @@ export default function Home() {
       }
       setImportDialogOpen(false);
       setImportText("");
+      setOpenFolderId(null);
       toast({ title: "Imported", description: "Templates imported successfully", duration: 2000 });
     } catch {
       toast({
@@ -388,7 +392,133 @@ export default function Home() {
     }
   };
 
+  const handleTileDragStart = (e: React.DragEvent, tileId: string) => {
+    e.dataTransfer.setData("text/plain", tileId);
+    e.dataTransfer.effectAllowed = "move";
+    setDraggingTileId(tileId);
+  };
+
+  const handleTileDragEnd = () => {
+    setDraggingTileId(null);
+    setDragOverFolderId(null);
+  };
+
+  const handleFolderDragOver = (e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverFolderId(folderId);
+  };
+
+  const handleFolderDragLeave = () => {
+    setDragOverFolderId(null);
+  };
+
+  const handleFolderDrop = (e: React.DragEvent, targetFolderId: string | null) => {
+    e.preventDefault();
+    const tileId = e.dataTransfer.getData("text/plain");
+    if (tileId) {
+      moveTileToFolder(tileId, targetFolderId);
+    }
+    setDragOverFolderId(null);
+    setDraggingTileId(null);
+  };
+
   const uncategorizedCount = tiles.filter((t) => t.folderId === null).length;
+
+  const renderTileCard = (tile: TemplateTile) => {
+    const isCopied = copiedId === tile.id;
+    const isDeleting = deleteConfirmId === tile.id;
+    const isDragging = draggingTileId === tile.id;
+
+    return (
+      <div
+        key={tile.id}
+        data-testid={`card-tile-${tile.id}`}
+        draggable
+        onDragStart={(e) => handleTileDragStart(e, tile.id)}
+        onDragEnd={handleTileDragEnd}
+        className={`group relative border rounded-md bg-card transition-all duration-200 cursor-pointer hover-elevate ${
+          isCopied ? "ring-2 ring-primary/50" : ""
+        } ${isDragging ? "opacity-40" : ""}`}
+        style={{ aspectRatio: "1 / 1" }}
+        onClick={() => copyToClipboard(tile)}
+      >
+        <div className="absolute inset-0 flex flex-col p-4 overflow-hidden rounded-md">
+          <div className="flex items-start justify-between gap-1 mb-1">
+            <div className="flex items-center gap-1 flex-1 min-w-0">
+              <GripVertical className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0 cursor-grab" />
+              <h3
+                className="text-sm font-semibold leading-tight truncate"
+                data-testid={`text-tile-title-${tile.id}`}
+              >
+                {tile.title || "Untitled"}
+              </h3>
+            </div>
+            <div className="flex items-center gap-0.5 invisible group-hover:visible transition-opacity opacity-0 group-hover:opacity-100 shrink-0">
+              <button
+                data-testid={`button-edit-${tile.id}`}
+                className="p-1 rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(tile);
+                }}
+                title="Edit"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+              <button
+                data-testid={`button-delete-${tile.id}`}
+                className="p-1 rounded-sm text-muted-foreground hover:text-destructive transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isDeleting) {
+                    deleteTile(tile.id);
+                  } else {
+                    setDeleteConfirmId(tile.id);
+                    setTimeout(() => setDeleteConfirmId(null), 3000);
+                  }
+                }}
+                title={isDeleting ? "Click again to confirm" : "Delete"}
+              >
+                {isDeleting ? (
+                  <Check className="w-3.5 h-3.5 text-destructive" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {isOnDashboard && tile.folderId && (
+            <span className="text-[10px] text-muted-foreground/60 mb-1 truncate">
+              {folders.find((f) => f.id === tile.folderId)?.name}
+            </span>
+          )}
+
+          <p
+            className="text-xs text-muted-foreground leading-relaxed flex-1 whitespace-pre-wrap overflow-hidden"
+            data-testid={`text-tile-body-${tile.id}`}
+          >
+            {tile.body || "Empty template"}
+          </p>
+
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+            {isCopied ? (
+              <span className="text-xs font-medium text-primary flex items-center gap-1" data-testid={`text-copied-${tile.id}`}>
+                <Check className="w-3 h-3" />
+                Copied!
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground/60 flex items-center gap-1">
+                <Copy className="w-3 h-3" />
+                Click to copy
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -396,9 +526,19 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-3 h-16">
             <div className="flex items-center gap-2 shrink-0">
+              {!isOnDashboard && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => { setOpenFolderId(null); setSearch(""); }}
+                  data-testid="button-back"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </Button>
+              )}
               <LayoutGrid className="w-5 h-5 text-primary" />
               <h1 className="text-lg font-semibold tracking-tight" data-testid="text-app-title">
-                Template Tiles
+                {isOnDashboard ? "Template Tiles" : currentFolderName}
               </h1>
             </div>
 
@@ -408,7 +548,7 @@ export default function Home() {
                 <Input
                   data-testid="input-search"
                   type="search"
-                  placeholder="Search templates..."
+                  placeholder={isOnDashboard ? "Search all templates..." : "Search in folder..."}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9"
@@ -417,10 +557,12 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-1 shrink-0 flex-wrap">
-              <Button size="sm" onClick={addTile} data-testid="button-add-tile">
-                <Plus className="w-4 h-4 mr-1" />
-                <span className="hidden sm:inline">Add</span>
-              </Button>
+              {!isOnDashboard && (
+                <Button size="sm" onClick={addTile} data-testid="button-add-tile">
+                  <Plus className="w-4 h-4 mr-1" />
+                  <span className="hidden sm:inline">Add</span>
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="secondary"
@@ -444,263 +586,219 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="border-b bg-card/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-1 py-2 overflow-x-auto" data-testid="folder-bar">
-            <button
-              data-testid="folder-tab-all"
-              className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                activeFolder === ALL_FOLDER_ID
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              onClick={() => setActiveFolder(ALL_FOLDER_ID)}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {isOnDashboard && !searchResultsGlobal ? (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-foreground" data-testid="text-section-folders">Folders</h2>
+              <Button size="sm" variant="secondary" onClick={openAddFolder} data-testid="button-add-folder">
+                <FolderPlus className="w-4 h-4 mr-1" />
+                New folder
+              </Button>
+            </div>
+
+            <div
+              className="grid gap-4 mb-8"
+              style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}
+              data-testid="grid-folders"
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              All
-              <span className="text-xs opacity-70">({tiles.length})</span>
-            </button>
+              {folders.map((folder) => {
+                const count = tiles.filter((t) => t.folderId === folder.id).length;
+                const isConfirmingDelete = deleteFolderConfirmId === folder.id;
+                const isDragOver = dragOverFolderId === folder.id;
 
-            {folders.map((folder) => {
-              const count = tiles.filter((t) => t.folderId === folder.id).length;
-              const isActive = activeFolder === folder.id;
-              const isConfirmingDelete = deleteFolderConfirmId === folder.id;
-
-              return (
-                <div key={folder.id} className="group/folder shrink-0 flex items-center relative">
-                  <button
-                    data-testid={`folder-tab-${folder.id}`}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                      isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground"
+                return (
+                  <div
+                    key={folder.id}
+                    data-testid={`card-folder-${folder.id}`}
+                    className={`group/folder relative border rounded-md bg-card cursor-pointer hover-elevate transition-all duration-200 ${
+                      isDragOver ? "ring-2 ring-primary border-primary/50 bg-primary/5" : ""
                     }`}
-                    onClick={() => setActiveFolder(folder.id)}
+                    style={{ aspectRatio: "4 / 3" }}
+                    onClick={() => setOpenFolderId(folder.id)}
+                    onDragOver={(e) => handleFolderDragOver(e, folder.id)}
+                    onDragLeave={handleFolderDragLeave}
+                    onDrop={(e) => handleFolderDrop(e, folder.id)}
                   >
-                    <FolderOpen className="w-3.5 h-3.5" />
-                    {folder.name}
-                    <span className="text-xs opacity-70">({count})</span>
-                  </button>
-                  <div className="invisible group-hover/folder:visible flex items-center gap-0.5 ml-0.5">
-                    <button
-                      data-testid={`button-rename-folder-${folder.id}`}
-                      className="p-0.5 rounded-sm text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openRenameFolder(folder);
-                      }}
-                      title="Rename folder"
-                    >
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                    <button
-                      data-testid={`button-delete-folder-${folder.id}`}
-                      className="p-0.5 rounded-sm text-muted-foreground hover:text-destructive transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (isConfirmingDelete) {
-                          deleteFolder(folder.id);
-                        } else {
-                          setDeleteFolderConfirmId(folder.id);
-                          setTimeout(() => setDeleteFolderConfirmId(null), 3000);
-                        }
-                      }}
-                      title={isConfirmingDelete ? "Click again to confirm" : "Delete folder"}
-                    >
-                      {isConfirmingDelete ? (
-                        <Check className="w-3 h-3 text-destructive" />
-                      ) : (
-                        <Trash2 className="w-3 h-3" />
-                      )}
-                    </button>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 rounded-md">
+                      <FolderOpen className={`w-10 h-10 mb-3 transition-colors ${isDragOver ? "text-primary" : "text-muted-foreground/50"}`} />
+                      <h3 className="text-sm font-semibold text-center truncate w-full" data-testid={`text-folder-name-${folder.id}`}>
+                        {folder.name}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {count} {count === 1 ? "template" : "templates"}
+                      </p>
+                    </div>
+                    <div className="absolute top-2 right-2 invisible group-hover/folder:visible flex items-center gap-0.5">
+                      <button
+                        data-testid={`button-rename-folder-${folder.id}`}
+                        className="p-1 rounded-sm text-muted-foreground hover:text-foreground transition-colors bg-card/80 backdrop-blur"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openRenameFolder(folder);
+                        }}
+                        title="Rename folder"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        data-testid={`button-delete-folder-${folder.id}`}
+                        className="p-1 rounded-sm text-muted-foreground hover:text-destructive transition-colors bg-card/80 backdrop-blur"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isConfirmingDelete) {
+                            deleteFolder(folder.id);
+                          } else {
+                            setDeleteFolderConfirmId(folder.id);
+                            setTimeout(() => setDeleteFolderConfirmId(null), 3000);
+                          }
+                        }}
+                        title={isConfirmingDelete ? "Click again to confirm" : "Delete folder"}
+                      >
+                        {isConfirmingDelete ? (
+                          <Check className="w-3.5 h-3.5 text-destructive" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {uncategorizedCount > 0 && (
+                <div
+                  data-testid="card-folder-uncategorized"
+                  className={`group/folder relative border rounded-md bg-card cursor-pointer hover-elevate transition-all duration-200 border-dashed ${
+                    dragOverFolderId === UNCATEGORIZED_ID ? "ring-2 ring-primary border-primary/50 bg-primary/5" : ""
+                  }`}
+                  style={{ aspectRatio: "4 / 3" }}
+                  onClick={() => setOpenFolderId(UNCATEGORIZED_ID)}
+                  onDragOver={(e) => handleFolderDragOver(e, UNCATEGORIZED_ID)}
+                  onDragLeave={handleFolderDragLeave}
+                  onDrop={(e) => handleFolderDrop(e, null)}
+                >
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4 rounded-md">
+                    <Inbox className={`w-10 h-10 mb-3 transition-colors ${dragOverFolderId === UNCATEGORIZED_ID ? "text-primary" : "text-muted-foreground/50"}`} />
+                    <h3 className="text-sm font-semibold text-center">Uncategorized</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {uncategorizedCount} {uncategorizedCount === 1 ? "template" : "templates"}
+                    </p>
                   </div>
                 </div>
-              );
-            })}
+              )}
+            </div>
+          </>
+        ) : null}
 
-            {uncategorizedCount > 0 && (
-              <button
-                data-testid="folder-tab-uncategorized"
-                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  activeFolder === UNCATEGORIZED_ID
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                onClick={() => setActiveFolder(UNCATEGORIZED_ID)}
-              >
-                <Inbox className="w-3.5 h-3.5" />
-                Uncategorized
-                <span className="text-xs opacity-70">({uncategorizedCount})</span>
-              </button>
+        {isOnDashboard && searchResultsGlobal ? (
+          <>
+            {searchResultsGlobal.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center" data-testid="text-no-results">
+                <Search className="w-12 h-12 text-muted-foreground/40 mb-4" />
+                <p className="text-lg font-medium text-muted-foreground">No templates found</p>
+                <p className="text-sm text-muted-foreground/70 mt-1">Try a different search term</p>
+              </div>
+            ) : (
+              <>
+                <h2 className="text-base font-semibold text-foreground mb-4" data-testid="text-section-search-results">
+                  Search results ({searchResultsGlobal.length})
+                </h2>
+                <div
+                  className="grid gap-4"
+                  style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}
+                  data-testid="grid-tiles"
+                >
+                  {searchResultsGlobal.map(renderTileCard)}
+                </div>
+              </>
             )}
+          </>
+        ) : null}
 
-            <button
-              data-testid="button-add-folder"
-              className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground transition-colors"
-              onClick={openAddFolder}
-              title="Add folder"
-            >
-              <FolderPlus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">New folder</span>
-            </button>
+        {!isOnDashboard ? (
+          <>
+            {filteredTiles.length === 0 && search.trim() ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center" data-testid="text-no-results">
+                <Search className="w-12 h-12 text-muted-foreground/40 mb-4" />
+                <p className="text-lg font-medium text-muted-foreground">No templates found</p>
+                <p className="text-sm text-muted-foreground/70 mt-1">Try a different search term</p>
+              </div>
+            ) : filteredTiles.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center" data-testid="text-empty-state">
+                <FolderOpen className="w-12 h-12 text-muted-foreground/40 mb-4" />
+                <p className="text-lg font-medium text-muted-foreground">This folder is empty</p>
+                <p className="text-sm text-muted-foreground/70 mt-1 mb-4">
+                  Add a template or drag one here from another folder
+                </p>
+                <Button onClick={addTile} data-testid="button-add-tile-empty">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Template
+                </Button>
+              </div>
+            ) : (
+              <div
+                className="grid gap-4 pb-20"
+                style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}
+                data-testid="grid-tiles"
+              >
+                {filteredTiles.map(renderTileCard)}
+              </div>
+            )}
+          </>
+        ) : null}
+      </main>
+
+      {draggingTileId && (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 animate-in slide-in-from-bottom-full duration-200"
+          data-testid="drag-drop-bar"
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <p className="text-xs text-muted-foreground mb-2 font-medium">Drop into a folder:</p>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              {folders
+                .filter((f) => f.id !== openFolderId)
+                .map((folder) => {
+                  const isDragOver = dragOverFolderId === folder.id;
+                  return (
+                    <div
+                      key={folder.id}
+                      data-testid={`drop-target-${folder.id}`}
+                      className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-md border-2 border-dashed transition-all cursor-default ${
+                        isDragOver
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground"
+                      }`}
+                      onDragOver={(e) => handleFolderDragOver(e, folder.id)}
+                      onDragLeave={handleFolderDragLeave}
+                      onDrop={(e) => handleFolderDrop(e, folder.id)}
+                    >
+                      <FolderOpen className="w-4 h-4" />
+                      <span className="text-sm font-medium">{folder.name}</span>
+                    </div>
+                  );
+                })}
+              {openFolderId !== UNCATEGORIZED_ID && (
+                <div
+                  data-testid="drop-target-uncategorized"
+                  className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-md border-2 border-dashed transition-all cursor-default ${
+                    dragOverFolderId === UNCATEGORIZED_ID
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground"
+                  }`}
+                  onDragOver={(e) => handleFolderDragOver(e, UNCATEGORIZED_ID)}
+                  onDragLeave={handleFolderDragLeave}
+                  onDrop={(e) => handleFolderDrop(e, null)}
+                >
+                  <Inbox className="w-4 h-4" />
+                  <span className="text-sm font-medium">Uncategorized</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {filteredTiles.length === 0 && search.trim() ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center" data-testid="text-no-results">
-            <Search className="w-12 h-12 text-muted-foreground/40 mb-4" />
-            <p className="text-lg font-medium text-muted-foreground">No templates found</p>
-            <p className="text-sm text-muted-foreground/70 mt-1">
-              Try a different search term
-            </p>
-          </div>
-        ) : filteredTiles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center" data-testid="text-empty-state">
-            <FolderOpen className="w-12 h-12 text-muted-foreground/40 mb-4" />
-            <p className="text-lg font-medium text-muted-foreground">
-              {activeFolder !== ALL_FOLDER_ID && activeFolder !== UNCATEGORIZED_ID
-                ? "This folder is empty"
-                : "No templates yet"}
-            </p>
-            <p className="text-sm text-muted-foreground/70 mt-1 mb-4">
-              {activeFolder !== ALL_FOLDER_ID && activeFolder !== UNCATEGORIZED_ID
-                ? "Add a template to this folder to get started"
-                : "Create your first template to get started"}
-            </p>
-            <Button onClick={addTile} data-testid="button-add-tile-empty">
-              <Plus className="w-4 h-4 mr-1" />
-              Add Template
-            </Button>
-          </div>
-        ) : (
-          <div
-            className="grid gap-4"
-            style={{
-              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-            }}
-            data-testid="grid-tiles"
-          >
-            {filteredTiles.map((tile, idx) => {
-              const isCopied = copiedId === tile.id;
-              const isDeleting = deleteConfirmId === tile.id;
-              const tileFolder = folders.find((f) => f.id === tile.folderId);
-
-              return (
-                <div
-                  key={tile.id}
-                  data-testid={`card-tile-${tile.id}`}
-                  className={`group relative border rounded-md bg-card transition-all duration-200 cursor-pointer hover-elevate ${
-                    isCopied ? "ring-2 ring-primary/50" : ""
-                  }`}
-                  style={{ aspectRatio: "1 / 1" }}
-                  onClick={() => copyToClipboard(tile)}
-                >
-                  <div className="absolute inset-0 flex flex-col p-4 overflow-hidden rounded-md">
-                    <div className="flex items-start justify-between gap-1 mb-1">
-                      <h3
-                        className="text-sm font-semibold leading-tight truncate flex-1"
-                        data-testid={`text-tile-title-${tile.id}`}
-                      >
-                        {tile.title || "Untitled"}
-                      </h3>
-                      <div className="flex items-center gap-0.5 invisible group-hover:visible transition-opacity opacity-0 group-hover:opacity-100 shrink-0">
-                        {canReorder && (
-                          <>
-                            <button
-                              data-testid={`button-move-left-${tile.id}`}
-                              className="p-1 rounded-sm text-muted-foreground hover:text-foreground transition-colors"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                moveTile(tile.id, -1);
-                              }}
-                              disabled={idx === 0}
-                              title="Move left"
-                            >
-                              <ChevronLeft className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              data-testid={`button-move-right-${tile.id}`}
-                              className="p-1 rounded-sm text-muted-foreground hover:text-foreground transition-colors"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                moveTile(tile.id, 1);
-                              }}
-                              disabled={idx === filteredTiles.length - 1}
-                              title="Move right"
-                            >
-                              <ChevronRight className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        )}
-                        <button
-                          data-testid={`button-edit-${tile.id}`}
-                          className="p-1 rounded-sm text-muted-foreground hover:text-foreground transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEdit(tile);
-                          }}
-                          title="Edit"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          data-testid={`button-delete-${tile.id}`}
-                          className="p-1 rounded-sm text-muted-foreground hover:text-destructive transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (isDeleting) {
-                              deleteTile(tile.id);
-                            } else {
-                              setDeleteConfirmId(tile.id);
-                              setTimeout(() => setDeleteConfirmId(null), 3000);
-                            }
-                          }}
-                          title={isDeleting ? "Click again to confirm" : "Delete"}
-                        >
-                          {isDeleting ? (
-                            <Check className="w-3.5 h-3.5 text-destructive" />
-                          ) : (
-                            <Trash2 className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {activeFolder === ALL_FOLDER_ID && tileFolder && (
-                      <span className="text-[10px] text-muted-foreground/60 mb-1 truncate" data-testid={`text-tile-folder-${tile.id}`}>
-                        {tileFolder.name}
-                      </span>
-                    )}
-
-                    <p
-                      className="text-xs text-muted-foreground leading-relaxed flex-1 whitespace-pre-wrap overflow-hidden"
-                      data-testid={`text-tile-body-${tile.id}`}
-                    >
-                      {tile.body || "Empty template"}
-                    </p>
-
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
-                      {isCopied ? (
-                        <span className="text-xs font-medium text-primary flex items-center gap-1" data-testid={`text-copied-${tile.id}`}>
-                          <Check className="w-3 h-3" />
-                          Copied!
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground/60 flex items-center gap-1">
-                          <Copy className="w-3 h-3" />
-                          Click to copy
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </main>
+      )}
 
       <Dialog open={editDialogOpen} onOpenChange={(open) => {
         setEditDialogOpen(open);
@@ -764,10 +862,7 @@ export default function Home() {
                     try {
                       const text = await navigator.clipboard.readText();
                       setEditBody(text);
-                      toast({
-                        title: "Pasted from clipboard",
-                        duration: 1500,
-                      });
+                      toast({ title: "Pasted from clipboard", duration: 1500 });
                     } catch {
                       toast({
                         title: "Paste failed",
