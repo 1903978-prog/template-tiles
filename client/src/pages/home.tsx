@@ -158,6 +158,8 @@ export default function Home() {
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [draggingTileId, setDraggingTileId] = useState<string | null>(null);
   const [previewTileId, setPreviewTileId] = useState<string | null>(null);
+  const [draggingFolderId, setDraggingFolderId] = useState<string | null>(null);
+  const [folderDropTargetId, setFolderDropTargetId] = useState<string | null>(null);
   const { toast } = useToast();
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -422,6 +424,45 @@ export default function Home() {
     setDraggingTileId(null);
   };
 
+  const handleFolderCardDragStart = (e: React.DragEvent, folderId: string) => {
+    e.dataTransfer.setData("application/folder-id", folderId);
+    e.dataTransfer.effectAllowed = "move";
+    setDraggingFolderId(folderId);
+  };
+
+  const handleFolderCardDragEnd = () => {
+    setDraggingFolderId(null);
+    setFolderDropTargetId(null);
+  };
+
+  const handleFolderCardDragOver = (e: React.DragEvent, targetFolderId: string) => {
+    if (!draggingFolderId || draggingFolderId === targetFolderId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setFolderDropTargetId(targetFolderId);
+  };
+
+  const handleFolderCardDrop = (e: React.DragEvent, targetFolderId: string) => {
+    e.preventDefault();
+    const sourceFolderId = e.dataTransfer.getData("application/folder-id");
+    if (!sourceFolderId || sourceFolderId === targetFolderId) {
+      setDraggingFolderId(null);
+      setFolderDropTargetId(null);
+      return;
+    }
+    setFolders((prev) => {
+      const fromIndex = prev.findIndex((f) => f.id === sourceFolderId);
+      const toIndex = prev.findIndex((f) => f.id === targetFolderId);
+      if (fromIndex === -1 || toIndex === -1) return prev;
+      const updated = [...prev];
+      const [moved] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, moved);
+      return updated;
+    });
+    setDraggingFolderId(null);
+    setFolderDropTargetId(null);
+  };
+
   const uncategorizedTiles = tiles.filter((t) => t.folderId === null);
   const uncategorizedCount = uncategorizedTiles.length;
 
@@ -608,21 +649,32 @@ export default function Home() {
                 const isMoveTarget = previewTileId !== null && uncategorizedTiles.some((t) => t.id === previewTileId);
                 const isActive = openFolderId === folder.id;
 
+                const isFolderDragging = draggingFolderId === folder.id;
+                const isFolderDropTarget = folderDropTargetId === folder.id;
+
                 return (
                   <div
                     key={folder.id}
                     data-testid={`card-folder-${folder.id}`}
+                    draggable
+                    onDragStart={(e) => handleFolderCardDragStart(e, folder.id)}
+                    onDragEnd={handleFolderCardDragEnd}
                     className={`group/folder relative border rounded-md cursor-pointer hover-elevate transition-all duration-200 ${
-                      isMoveTarget
-                        ? "bg-green-50 border-green-300 dark:bg-green-950/30 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/40 hover:border-green-400 dark:hover:border-green-600"
-                        : isActive
-                          ? "ring-2 ring-primary border-primary/50 bg-primary/5"
-                          : isDragOver
-                            ? "ring-2 ring-primary border-primary/50 bg-primary/5 bg-card"
-                            : "bg-card"
+                      isFolderDragging
+                        ? "opacity-40"
+                        : isFolderDropTarget && draggingFolderId
+                          ? "ring-2 ring-blue-400 border-blue-400 bg-blue-50 dark:bg-blue-950/30"
+                          : isMoveTarget
+                            ? "bg-green-50 border-green-300 dark:bg-green-950/30 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/40 hover:border-green-400 dark:hover:border-green-600"
+                            : isActive
+                              ? "ring-2 ring-primary border-primary/50 bg-primary/5"
+                              : isDragOver
+                                ? "ring-2 ring-primary border-primary/50 bg-primary/5 bg-card"
+                                : "bg-card"
                     }`}
                     style={{ aspectRatio: "4 / 3" }}
                     onClick={() => {
+                      if (draggingFolderId) return;
                       if (isActive) {
                         setOpenFolderId(null);
                         setSearch("");
@@ -636,9 +688,24 @@ export default function Home() {
                         setSearch("");
                       }
                     }}
-                    onDragOver={(e) => handleFolderDragOver(e, folder.id)}
-                    onDragLeave={handleFolderDragLeave}
-                    onDrop={(e) => handleFolderDrop(e, folder.id)}
+                    onDragOver={(e) => {
+                      if (draggingFolderId) {
+                        handleFolderCardDragOver(e, folder.id);
+                      } else {
+                        handleFolderDragOver(e, folder.id);
+                      }
+                    }}
+                    onDragLeave={() => {
+                      handleFolderDragLeave();
+                      setFolderDropTargetId(null);
+                    }}
+                    onDrop={(e) => {
+                      if (draggingFolderId) {
+                        handleFolderCardDrop(e, folder.id);
+                      } else {
+                        handleFolderDrop(e, folder.id);
+                      }
+                    }}
                   >
                     <div className="absolute inset-0 flex flex-col items-center justify-center p-4 rounded-md">
                       <FolderOpen className={`w-10 h-10 mb-3 transition-colors ${

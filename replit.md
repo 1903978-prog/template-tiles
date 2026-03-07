@@ -17,7 +17,7 @@ A single-page web app for managing reusable text templates. Click a tile to prev
 ## Key Features
 
 - **Persistent layout** - folders always visible at the top; preview pane always visible on the right (shows empty state when no tile selected)
-- **Folder cards** - visual cards at the top; click to open a folder (shows its templates below); click again to close; active folder gets highlighted ring; also act as drag-and-drop targets
+- **Folder cards** - visual cards at the top; click to open a folder (shows its templates below); click again to close; active folder gets highlighted ring; also act as drag-and-drop targets; draggable to reorder (drag a folder onto another to swap positions, persisted in localStorage)
 - **Uncategorized tiles** - shown directly on the dashboard below folder cards; clicking a tile turns all folder cards light green with "Click to move here" text; clicking a green folder card moves the template
 - **Preview pane** - always-visible panel on the right (sticky, full viewport height minus header); click any tile to see its full text with copy, edit, and close buttons; for uncategorized tiles, also shows "Move to" folder buttons
 - **Drag and drop** - drag template tiles onto folder cards (on dashboard) or onto a floating drop-zone bar (when inside a folder) to move templates between folders
