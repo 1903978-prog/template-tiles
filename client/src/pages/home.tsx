@@ -585,6 +585,9 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex gap-6">
+          <div className="flex-1 min-w-0">
+
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold text-foreground" data-testid="text-section-folders">Folders</h2>
           <Button size="sm" variant="secondary" onClick={openAddFolder} data-testid="button-add-folder">
@@ -685,9 +688,6 @@ export default function Home() {
                 );
               })}
             </div>
-
-        <div className="flex gap-6">
-          <div className="flex-1 min-w-0">
 
         {isOnDashboard && !searchResultsGlobal && uncategorizedTiles.length > 0 && (
               <>
@@ -888,10 +888,10 @@ export default function Home() {
           </div>
 
           <div
-            className="w-80 lg:w-96 shrink-0 hidden md:block sticky top-24 self-start"
+            className="w-80 lg:w-96 shrink-0 hidden md:block sticky top-[73px] self-start border rounded-lg bg-card overflow-hidden flex flex-col"
             data-testid="panel-preview"
+            style={{ height: "calc(100vh - 97px)" }}
           >
-            <div className="border rounded-lg bg-card overflow-hidden min-h-[200px]">
               {previewTile ? (
                 <>
                   <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
@@ -958,7 +958,7 @@ export default function Home() {
                       </div>
                     </div>
                   )}
-                  <div className="p-4 max-h-[60vh] overflow-y-auto">
+                  <div className="p-4 flex-1 overflow-y-auto">
                     <p
                       className="text-sm text-foreground leading-relaxed whitespace-pre-wrap"
                       data-testid="preview-body"
@@ -988,12 +988,11 @@ export default function Home() {
                   </div>
                 </>
               ) : (
-                <div className="flex flex-col items-center justify-center py-16 px-4 text-center" data-testid="preview-empty">
+                <div className="flex flex-col items-center justify-center flex-1 px-4 text-center" data-testid="preview-empty">
                   <FileText className="w-10 h-10 text-muted-foreground/30 mb-3" />
                   <p className="text-sm text-muted-foreground">Select a template to preview</p>
                 </div>
               )}
-            </div>
           </div>
         </div>
       </main>
