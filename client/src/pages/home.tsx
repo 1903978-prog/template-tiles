@@ -623,27 +623,42 @@ export default function Home() {
                 const count = tiles.filter((t) => t.folderId === folder.id).length;
                 const isConfirmingDelete = deleteFolderConfirmId === folder.id;
                 const isDragOver = dragOverFolderId === folder.id;
+                const isMoveTarget = previewTileId !== null && uncategorizedTiles.some((t) => t.id === previewTileId);
 
                 return (
                   <div
                     key={folder.id}
                     data-testid={`card-folder-${folder.id}`}
-                    className={`group/folder relative border rounded-md bg-card cursor-pointer hover-elevate transition-all duration-200 ${
-                      isDragOver ? "ring-2 ring-primary border-primary/50 bg-primary/5" : ""
+                    className={`group/folder relative border rounded-md cursor-pointer hover-elevate transition-all duration-200 ${
+                      isMoveTarget
+                        ? "bg-green-50 border-green-300 dark:bg-green-950/30 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/40 hover:border-green-400 dark:hover:border-green-600"
+                        : isDragOver
+                          ? "ring-2 ring-primary border-primary/50 bg-primary/5 bg-card"
+                          : "bg-card"
                     }`}
                     style={{ aspectRatio: "4 / 3" }}
-                    onClick={() => { setOpenFolderId(folder.id); setPreviewTileId(null); }}
+                    onClick={() => {
+                      if (isMoveTarget && previewTileId) {
+                        moveTileToFolder(previewTileId, folder.id);
+                        setPreviewTileId(null);
+                      } else {
+                        setOpenFolderId(folder.id);
+                        setPreviewTileId(null);
+                      }
+                    }}
                     onDragOver={(e) => handleFolderDragOver(e, folder.id)}
                     onDragLeave={handleFolderDragLeave}
                     onDrop={(e) => handleFolderDrop(e, folder.id)}
                   >
                     <div className="absolute inset-0 flex flex-col items-center justify-center p-4 rounded-md">
-                      <FolderOpen className={`w-10 h-10 mb-3 transition-colors ${isDragOver ? "text-primary" : "text-muted-foreground/50"}`} />
+                      <FolderOpen className={`w-10 h-10 mb-3 transition-colors ${
+                        isMoveTarget ? "text-green-500 dark:text-green-400" : isDragOver ? "text-primary" : "text-muted-foreground/50"
+                      }`} />
                       <h3 className="text-sm font-semibold text-center truncate w-full" data-testid={`text-folder-name-${folder.id}`}>
                         {folder.name}
                       </h3>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {count} {count === 1 ? "template" : "templates"}
+                        {isMoveTarget ? "Click to move here" : `${count} ${count === 1 ? "template" : "templates"}`}
                       </p>
                     </div>
                     <div className="absolute top-2 right-2 invisible group-hover/folder:visible flex items-center gap-0.5">
