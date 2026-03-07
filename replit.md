@@ -16,8 +16,9 @@ A single-page web app for managing reusable text templates. Click a tile to copy
 
 ## Key Features
 
-- **Dashboard view** - main screen shows folder cards in a grid; click to open
+- **Dashboard view** - main screen shows folder cards in a grid; click to open; uncategorized templates shown inline below folders
 - **Folder cards** - visual cards representing folders (Emails, Finance, etc.); act as drag-and-drop targets
+- **Uncategorized tiles on dashboard** - uncategorized templates display directly on the dashboard; click a tile to reveal folder assignment buttons; click a folder button to move the tile into that folder
 - **Folder view** - click a folder card to see its templates; back button returns to dashboard
 - **Drag and drop** - drag template tiles onto folder cards (on dashboard) or onto a floating drop-zone bar (when inside a folder) to move templates between folders
 - **Folder CRUD** - create, rename, delete folders via dialogs

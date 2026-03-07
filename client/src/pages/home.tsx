@@ -156,6 +156,7 @@ export default function Home() {
   const [deleteFolderConfirmId, setDeleteFolderConfirmId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [draggingTileId, setDraggingTileId] = useState<string | null>(null);
+  const [selectedUncatTileId, setSelectedUncatTileId] = useState<string | null>(null);
   const { toast } = useToast();
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -175,15 +176,11 @@ export default function Home() {
 
   const isOnDashboard = openFolderId === null;
   const currentFolderName = openFolderId
-    ? (openFolderId === UNCATEGORIZED_ID
-      ? "Uncategorized"
-      : folders.find((f) => f.id === openFolderId)?.name || "Folder")
+    ? folders.find((f) => f.id === openFolderId)?.name || "Folder"
     : null;
 
   const visibleTiles = openFolderId
-    ? tiles.filter((t) =>
-        openFolderId === UNCATEGORIZED_ID ? t.folderId === null : t.folderId === openFolderId
-      )
+    ? tiles.filter((t) => t.folderId === openFolderId)
     : [];
 
   const filteredTiles = search.trim()
@@ -225,7 +222,7 @@ export default function Home() {
   );
 
   const addTile = () => {
-    const defaultFolder = openFolderId === UNCATEGORIZED_ID ? null : openFolderId;
+    const defaultFolder = openFolderId;
     const newTile: TemplateTile = {
       id: generateId(),
       title: "",
@@ -423,7 +420,8 @@ export default function Home() {
     setDraggingTileId(null);
   };
 
-  const uncategorizedCount = tiles.filter((t) => t.folderId === null).length;
+  const uncategorizedTiles = tiles.filter((t) => t.folderId === null);
+  const uncategorizedCount = uncategorizedTiles.length;
 
   const renderTileCard = (tile: TemplateTile) => {
     const isCopied = copiedId === tile.id;
@@ -666,28 +664,154 @@ export default function Home() {
                 );
               })}
 
-              {uncategorizedCount > 0 && (
-                <div
-                  data-testid="card-folder-uncategorized"
-                  className={`group/folder relative border rounded-md bg-card cursor-pointer hover-elevate transition-all duration-200 border-dashed ${
-                    dragOverFolderId === UNCATEGORIZED_ID ? "ring-2 ring-primary border-primary/50 bg-primary/5" : ""
-                  }`}
-                  style={{ aspectRatio: "4 / 3" }}
-                  onClick={() => setOpenFolderId(UNCATEGORIZED_ID)}
-                  onDragOver={(e) => handleFolderDragOver(e, UNCATEGORIZED_ID)}
-                  onDragLeave={handleFolderDragLeave}
-                  onDrop={(e) => handleFolderDrop(e, null)}
-                >
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4 rounded-md">
-                    <Inbox className={`w-10 h-10 mb-3 transition-colors ${dragOverFolderId === UNCATEGORIZED_ID ? "text-primary" : "text-muted-foreground/50"}`} />
-                    <h3 className="text-sm font-semibold text-center">Uncategorized</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {uncategorizedCount} {uncategorizedCount === 1 ? "template" : "templates"}
-                    </p>
-                  </div>
-                </div>
-              )}
             </div>
+
+            {uncategorizedTiles.length > 0 && (
+              <>
+                <div className="flex items-center justify-between mt-8 mb-4">
+                  <h2 className="text-base font-semibold text-foreground flex items-center gap-2" data-testid="text-section-uncategorized">
+                    <Inbox className="w-4 h-4 text-muted-foreground" />
+                    Uncategorized
+                    <span className="text-sm font-normal text-muted-foreground">({uncategorizedTiles.length})</span>
+                  </h2>
+                </div>
+                <div
+                  className="grid gap-4"
+                  style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}
+                  data-testid="grid-uncategorized"
+                >
+                  {uncategorizedTiles.map((tile) => {
+                    const isCopied = copiedId === tile.id;
+                    const isDeleting = deleteConfirmId === tile.id;
+                    const isDragging = draggingTileId === tile.id;
+                    const isSelected = selectedUncatTileId === tile.id;
+
+                    return (
+                      <div key={tile.id} className="flex flex-col gap-2">
+                        <div
+                          data-testid={`card-tile-${tile.id}`}
+                          draggable
+                          onDragStart={(e) => handleTileDragStart(e, tile.id)}
+                          onDragEnd={handleTileDragEnd}
+                          className={`group relative border rounded-md bg-card transition-all duration-200 cursor-pointer hover-elevate ${
+                            isCopied ? "ring-2 ring-primary/50" : ""
+                          } ${isDragging ? "opacity-40" : ""} ${
+                            isSelected ? "ring-2 ring-primary" : ""
+                          }`}
+                          style={{ aspectRatio: "1 / 1" }}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedUncatTileId(null);
+                            } else {
+                              setSelectedUncatTileId(tile.id);
+                            }
+                          }}
+                        >
+                          <div className="absolute inset-0 flex flex-col p-4 overflow-hidden rounded-md">
+                            <div className="flex items-start justify-between gap-1 mb-1">
+                              <div className="flex items-center gap-1 flex-1 min-w-0">
+                                <GripVertical className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0 cursor-grab" />
+                                <h3
+                                  className="text-sm font-semibold leading-tight truncate"
+                                  data-testid={`text-tile-title-${tile.id}`}
+                                >
+                                  {tile.title || "Untitled"}
+                                </h3>
+                              </div>
+                              <div className="flex items-center gap-0.5 invisible group-hover:visible transition-opacity opacity-0 group-hover:opacity-100 shrink-0">
+                                <button
+                                  data-testid={`button-copy-${tile.id}`}
+                                  className="p-1 rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    copyToClipboard(tile);
+                                  }}
+                                  title="Copy"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  data-testid={`button-edit-${tile.id}`}
+                                  className="p-1 rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    startEdit(tile);
+                                  }}
+                                  title="Edit"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  data-testid={`button-delete-${tile.id}`}
+                                  className="p-1 rounded-sm text-muted-foreground hover:text-destructive transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (isDeleting) {
+                                      deleteTile(tile.id);
+                                    } else {
+                                      setDeleteConfirmId(tile.id);
+                                      setTimeout(() => setDeleteConfirmId(null), 3000);
+                                    }
+                                  }}
+                                  title={isDeleting ? "Click again to confirm" : "Delete"}
+                                >
+                                  {isDeleting ? (
+                                    <Check className="w-3.5 h-3.5 text-destructive" />
+                                  ) : (
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+
+                            <p
+                              className="text-xs text-muted-foreground leading-relaxed flex-1 whitespace-pre-wrap overflow-hidden"
+                              data-testid={`text-tile-body-${tile.id}`}
+                            >
+                              {tile.body || "Empty template"}
+                            </p>
+
+                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+                              {isCopied ? (
+                                <span className="text-xs font-medium text-primary flex items-center gap-1" data-testid={`text-copied-${tile.id}`}>
+                                  <Check className="w-3 h-3" />
+                                  Copied!
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground/60 flex items-center gap-1">
+                                  <FolderPlus className="w-3 h-3" />
+                                  Click to assign folder
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {isSelected && (
+                          <div className="flex items-center gap-1.5 flex-wrap animate-in fade-in slide-in-from-top-1 duration-150" data-testid={`folder-options-${tile.id}`}>
+                            <span className="text-xs text-muted-foreground mr-1">Move to:</span>
+                            {folders.map((f) => (
+                              <button
+                                key={f.id}
+                                data-testid={`move-to-folder-${f.id}-${tile.id}`}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-medium text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                                onClick={() => {
+                                  moveTileToFolder(tile.id, f.id);
+                                  setSelectedUncatTileId(null);
+                                }}
+                              >
+                                <FolderOpen className="w-3 h-3" />
+                                {f.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </>
         ) : null}
 
@@ -779,22 +903,20 @@ export default function Home() {
                     </div>
                   );
                 })}
-              {openFolderId !== UNCATEGORIZED_ID && (
-                <div
-                  data-testid="drop-target-uncategorized"
-                  className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-md border-2 border-dashed transition-all cursor-default ${
-                    dragOverFolderId === UNCATEGORIZED_ID
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground"
-                  }`}
-                  onDragOver={(e) => handleFolderDragOver(e, UNCATEGORIZED_ID)}
-                  onDragLeave={handleFolderDragLeave}
-                  onDrop={(e) => handleFolderDrop(e, null)}
-                >
-                  <Inbox className="w-4 h-4" />
-                  <span className="text-sm font-medium">Uncategorized</span>
-                </div>
-              )}
+              <div
+                data-testid="drop-target-uncategorized"
+                className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-md border-2 border-dashed transition-all cursor-default ${
+                  dragOverFolderId === UNCATEGORIZED_ID
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground"
+                }`}
+                onDragOver={(e) => handleFolderDragOver(e, UNCATEGORIZED_ID)}
+                onDragLeave={handleFolderDragLeave}
+                onDrop={(e) => handleFolderDrop(e, null)}
+              >
+                <Inbox className="w-4 h-4" />
+                <span className="text-sm font-medium">Uncategorized</span>
+              </div>
             </div>
           </div>
         </div>
