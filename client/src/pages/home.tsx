@@ -143,7 +143,6 @@ export default function Home() {
   const [openFolderId, setOpenFolderId] = useState<string | null>(null);
   const [editingTile, setEditingTile] = useState<TemplateTile | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -268,7 +267,6 @@ export default function Home() {
 
   const deleteTile = (id: string) => {
     setTiles((prev) => prev.filter((t) => t.id !== id));
-    setDeleteConfirmId(null);
     if (previewTileId === id) setPreviewTileId(null);
   };
 
@@ -470,7 +468,6 @@ export default function Home() {
 
   const renderTileCard = (tile: TemplateTile) => {
     const isCopied = copiedId === tile.id;
-    const isDeleting = deleteConfirmId === tile.id;
     const isDragging = draggingTileId === tile.id;
     const isPreviewed = previewTileId === tile.id;
 
@@ -529,20 +526,11 @@ export default function Home() {
                 className="p-1 rounded-sm text-muted-foreground hover:text-destructive transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (isDeleting) {
-                    deleteTile(tile.id);
-                  } else {
-                    setDeleteConfirmId(tile.id);
-                    setTimeout(() => setDeleteConfirmId(null), 3000);
-                  }
+                  deleteTile(tile.id);
                 }}
-                title={isDeleting ? "Click again to confirm" : "Delete"}
+                title="Delete"
               >
-                {isDeleting ? (
-                  <Check className="w-3.5 h-3.5 text-destructive" />
-                ) : (
-                  <Trash2 className="w-3.5 h-3.5" />
-                )}
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -775,7 +763,6 @@ export default function Home() {
                 >
                   {uncategorizedTiles.map((tile) => {
                     const isCopied = copiedId === tile.id;
-                    const isDeleting = deleteConfirmId === tile.id;
                     const isDragging = draggingTileId === tile.id;
                     const isPreviewed = previewTileId === tile.id;
 
@@ -833,20 +820,11 @@ export default function Home() {
                                   className="p-1 rounded-sm text-muted-foreground hover:text-destructive transition-colors"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (isDeleting) {
-                                      deleteTile(tile.id);
-                                    } else {
-                                      setDeleteConfirmId(tile.id);
-                                      setTimeout(() => setDeleteConfirmId(null), 3000);
-                                    }
+                                    deleteTile(tile.id);
                                   }}
-                                  title={isDeleting ? "Click again to confirm" : "Delete"}
+                                  title="Delete"
                                 >
-                                  {isDeleting ? (
-                                    <Check className="w-3.5 h-3.5 text-destructive" />
-                                  ) : (
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  )}
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </div>
