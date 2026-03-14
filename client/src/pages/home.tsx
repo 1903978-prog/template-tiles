@@ -485,7 +485,10 @@ export default function Home() {
           isPreviewed ? "ring-2 ring-primary border-primary/50" : isCopied ? "ring-2 ring-primary/50" : ""
         } ${isDragging ? "opacity-40" : ""}`}
         style={{ aspectRatio: "1 / 1" }}
-        onClick={() => setPreviewTileId(isPreviewed ? null : tile.id)}
+        onClick={() => {
+          copyToClipboard(tile);
+          setPreviewTileId(tile.id);
+        }}
       >
         <div className="absolute inset-0 flex flex-col p-4 overflow-hidden rounded-md">
           <div className="flex items-start justify-between gap-1 mb-1">
