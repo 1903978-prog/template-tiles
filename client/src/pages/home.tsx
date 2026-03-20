@@ -55,6 +55,8 @@ interface AppData {
 }
 
 const STORAGE_KEY = "template-tiles-data";
+const VERSION_KEY = "template-tiles-version";
+const APP_VERSION = "2";
 const UNCATEGORIZED_ID = "__uncategorized__";
 
 const DEFAULT_FOLDERS: Folder[] = [
@@ -146,6 +148,13 @@ const DEFAULT_TILES: TemplateTile[] = [
 
 function loadData(): AppData {
   try {
+    const storedVersion = localStorage.getItem(VERSION_KEY);
+    if (storedVersion !== APP_VERSION) {
+      // Version changed — clear old data and load fresh defaults
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.setItem(VERSION_KEY, APP_VERSION);
+      return { folders: DEFAULT_FOLDERS, tiles: DEFAULT_TILES };
+    }
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
