@@ -35,11 +35,14 @@ import {
   GripVertical,
   X,
   FileText,
+  Lock,
+  Unlock,
 } from "lucide-react";
 
 interface Folder {
   id: string;
   name: string;
+  password?: string;
 }
 
 interface TemplateTile {
@@ -56,7 +59,7 @@ interface AppData {
 
 const STORAGE_KEY = "template-tiles-data";
 const VERSION_KEY = "template-tiles-version";
-const APP_VERSION = "2";
+const APP_VERSION = "3";
 const UNCATEGORIZED_ID = "__uncategorized__";
 
 const DEFAULT_FOLDERS: Folder[] = [
@@ -205,6 +208,11 @@ export default function Home() {
   const [folderName, setFolderName] = useState("");
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [deleteFolderConfirmId, setDeleteFolderConfirmId] = useState<string | null>(null);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordDialogMode, setPasswordDialogMode] = useState<"unlock" | "set" | "remove">("unlock");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordFolderId, setPasswordFolderId] = useState<string | null>(null);
+  const [unlockedFolders, setUnlockedFolders] = useState<Set<string>>(new Set());
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [draggingTileId, setDraggingTileId] = useState<string | null>(null);
   const [previewTileId, setPreviewTileId] = useState<string | null>(null);
@@ -374,6 +382,78 @@ export default function Home() {
     if (openFolderId === folderId) setOpenFolderId(null);
     setDeleteFolderConfirmId(null);
     toast({ title: "Folder deleted", description: "Templates moved to Uncategorized", duration: 2000 });
+  };
+
+  const openFolderWithPasswordCheck = (folderId: string) => {
+    const folder = folders.find((f) => f.id === folderId);
+    if (folder?.password && !unlockedFolders.has(folderId)) {
+      setPasswordFolderId(folderId);
+      setPasswordDialogMode("unlock");
+      setPasswordInput("");
+      setPasswordDialogOpen(true);
+    } else {
+      setOpenFolderId(folderId);
+      setPreviewTileId(null);
+      setSearch("");
+    }
+  };
+
+  const handlePasswordSubmit = () => {
+    const folder = folders.find((f) => f.id === passwordFolderId);
+    if (!folder) return;
+
+    if (passwordDialogMode === "unlock") {
+      if (passwordInput === folder.password) {
+        setUnlockedFolders((prev) => new Set(prev).add(folder.id));
+        setOpenFolderId(folder.id);
+        setPreviewTileId(null);
+        setSearch("");
+        setPasswordDialogOpen(false);
+        setPasswordInput("");
+        toast({ title: "Folder unlocked", duration: 1500 });
+      } else {
+        toast({ title: "Wrong password", variant: "destructive", duration: 2000 });
+      }
+    } else if (passwordDialogMode === "set") {
+      if (passwordInput.trim()) {
+        setFolders((prev) =>
+          prev.map((f) => (f.id === folder.id ? { ...f, password: passwordInput.trim() } : f))
+        );
+        setPasswordDialogOpen(false);
+        setPasswordInput("");
+        toast({ title: "Password set", description: `"${folder.name}" is now protected`, duration: 2000 });
+      }
+    } else if (passwordDialogMode === "remove") {
+      if (passwordInput === folder.password) {
+        setFolders((prev) =>
+          prev.map((f) => (f.id === folder.id ? { ...f, password: undefined } : f))
+        );
+        setUnlockedFolders((prev) => {
+          const next = new Set(prev);
+          next.delete(folder.id);
+          return next;
+        });
+        setPasswordDialogOpen(false);
+        setPasswordInput("");
+        toast({ title: "Password removed", description: `"${folder.name}" is now open`, duration: 2000 });
+      } else {
+        toast({ title: "Wrong password", variant: "destructive", duration: 2000 });
+      }
+    }
+  };
+
+  const openSetPassword = (folderId: string) => {
+    setPasswordFolderId(folderId);
+    setPasswordDialogMode("set");
+    setPasswordInput("");
+    setPasswordDialogOpen(true);
+  };
+
+  const openRemovePassword = (folderId: string) => {
+    setPasswordFolderId(folderId);
+    setPasswordDialogMode("remove");
+    setPasswordInput("");
+    setPasswordDialogOpen(true);
   };
 
   const exportTemplates = () => {
@@ -725,9 +805,7 @@ export default function Home() {
                         moveTileToFolder(previewTileId, folder.id);
                         setPreviewTileId(null);
                       } else {
-                        setOpenFolderId(folder.id);
-                        setPreviewTileId(null);
-                        setSearch("");
+                        openFolderWithPasswordCheck(folder.id);
                       }
                     }}
                     onDragOver={(e) => {
@@ -759,8 +837,25 @@ export default function Home() {
                       <p className="text-xs text-muted-foreground mt-1">
                         {isMoveTarget ? "Click to move here" : `${count} ${count === 1 ? "template" : "templates"}`}
                       </p>
+                      {folder.password && (
+                        <Lock className="w-3.5 h-3.5 text-yellow-500 mt-1.5" />
+                      )}
                     </div>
                     <div className="absolute top-2 right-2 invisible group-hover/folder:visible flex items-center gap-0.5">
+                      <button
+                        className="p-1 rounded-sm text-muted-foreground hover:text-foreground transition-colors bg-card/80 backdrop-blur"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (folder.password) {
+                            openRemovePassword(folder.id);
+                          } else {
+                            openSetPassword(folder.id);
+                          }
+                        }}
+                        title={folder.password ? "Remove password" : "Set password"}
+                      >
+                        {folder.password ? <Lock className="w-3.5 h-3.5 text-yellow-500" /> : <Unlock className="w-3.5 h-3.5" />}
+                      </button>
                       <button
                         data-testid={`button-rename-folder-${folder.id}`}
                         className="p-1 rounded-sm text-muted-foreground hover:text-foreground transition-colors bg-card/80 backdrop-blur"
@@ -1329,6 +1424,53 @@ export default function Home() {
               data-testid="button-confirm-import"
             >
               Import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={passwordDialogOpen} onOpenChange={(open) => {
+        setPasswordDialogOpen(open);
+        if (!open) {
+          setPasswordInput("");
+          setPasswordFolderId(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {passwordDialogMode === "unlock" ? "🔒 Enter Password" : passwordDialogMode === "set" ? "🔐 Set Password" : "🔓 Remove Password"}
+            </DialogTitle>
+            <DialogDescription>
+              {passwordDialogMode === "unlock"
+                ? "This folder is password protected. Enter the password to access it."
+                : passwordDialogMode === "set"
+                ? "Set a password to protect this folder."
+                : "Enter the current password to remove protection."}
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            type="password"
+            placeholder={passwordDialogMode === "set" ? "Choose a password..." : "Enter password..."}
+            value={passwordInput}
+            onChange={(e) => setPasswordInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && passwordInput.trim()) handlePasswordSubmit();
+            }}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setPasswordDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePasswordSubmit}
+              disabled={!passwordInput.trim()}
+            >
+              {passwordDialogMode === "unlock" ? "Unlock" : passwordDialogMode === "set" ? "Set Password" : "Remove"}
             </Button>
           </DialogFooter>
         </DialogContent>
