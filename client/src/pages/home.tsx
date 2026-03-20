@@ -1145,7 +1145,7 @@ export default function Home() {
           setEditFolderId(null);
         }
       }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-5xl w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle data-testid="text-dialog-title">
               {editingTile && tiles.find((t) => t.id === editingTile.id)
@@ -1219,7 +1219,7 @@ export default function Home() {
                 placeholder="Type or paste your template text here..."
                 value={editBody}
                 onChange={(e) => setEditBody(e.target.value)}
-                className="min-h-[200px] resize-y font-mono text-sm"
+                className="min-h-[500px] resize-y font-mono text-sm"
               />
             </div>
           </div>
