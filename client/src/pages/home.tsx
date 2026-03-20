@@ -61,7 +61,7 @@ const STORAGE_KEY = "template-tiles-data";
 const VERSION_KEY = "template-tiles-version";
 const APP_VERSION = "3";
 const UNCATEGORIZED_ID = "__uncategorized__";
-const SITE_PASSWORD = "eendigo2026";
+const SITE_PASSWORD = "l";
 const SITE_AUTH_KEY = "template-tiles-auth";
 
 const DEFAULT_FOLDERS: Folder[] = [
