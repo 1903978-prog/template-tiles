@@ -61,6 +61,8 @@ const STORAGE_KEY = "template-tiles-data";
 const VERSION_KEY = "template-tiles-version";
 const APP_VERSION = "3";
 const UNCATEGORIZED_ID = "__uncategorized__";
+const SITE_PASSWORD = "eendigo2026";
+const SITE_AUTH_KEY = "template-tiles-auth";
 
 const DEFAULT_FOLDERS: Folder[] = [
   { id: "folder-emails", name: "Emails" },
@@ -192,6 +194,22 @@ function generateId(): string {
 }
 
 export default function Home() {
+  const [siteAuthenticated, setSiteAuthenticated] = useState(() => {
+    return sessionStorage.getItem(SITE_AUTH_KEY) === "true";
+  });
+  const [sitePasswordInput, setSitePasswordInput] = useState("");
+  const [sitePasswordError, setSitePasswordError] = useState(false);
+
+  const handleSiteLogin = () => {
+    if (sitePasswordInput === SITE_PASSWORD) {
+      sessionStorage.setItem(SITE_AUTH_KEY, "true");
+      setSiteAuthenticated(true);
+      setSitePasswordError(false);
+    } else {
+      setSitePasswordError(true);
+    }
+  };
+
   const [data, setData] = useState<AppData>(loadData);
   const [search, setSearch] = useState("");
   const [openFolderId, setOpenFolderId] = useState<string | null>(null);
@@ -696,6 +714,42 @@ export default function Home() {
       </div>
     );
   };
+
+  if (!siteAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-full max-w-sm mx-auto p-8">
+          <div className="flex flex-col items-center mb-8">
+            <Lock className="w-12 h-12 text-primary mb-4" />
+            <h1 className="text-2xl font-bold text-foreground">Template Tiles</h1>
+            <p className="text-sm text-muted-foreground mt-2">Enter password to access</p>
+          </div>
+          <div className="space-y-4">
+            <Input
+              type="password"
+              placeholder="Password"
+              value={sitePasswordInput}
+              onChange={(e) => {
+                setSitePasswordInput(e.target.value);
+                setSitePasswordError(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSiteLogin();
+              }}
+              className={sitePasswordError ? "border-destructive" : ""}
+              autoFocus
+            />
+            {sitePasswordError && (
+              <p className="text-sm text-destructive">Wrong password. Try again.</p>
+            )}
+            <Button onClick={handleSiteLogin} className="w-full" disabled={!sitePasswordInput.trim()}>
+              Enter
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
